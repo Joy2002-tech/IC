@@ -1,3 +1,77 @@
+// ===============================
+// 🔒 STATIC BIN CONFIG (FIXED)
+// ===============================
+const _BIN = '69c92fc45fdde574550f2016'; // ✅ stays constant forever
+const API_KEY = 'YOUR_API_KEY_HERE'; // ⚠️ replace with your key
+
+function esc(s){const d=document.createElement('div');d.appendChild(document.createTextNode(String(s)));return d.innerHTML;}
+
+// ===============================
+// 📡 DATA FETCH (READ)
+// ===============================
+async function fetchData(){
+  try{
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${_BIN}/latest`,{
+      headers:{'X-Master-Key':API_KEY}
+    });
+    const data = await res.json();
+    console.log('Fetched Data:', data);
+    return data.record;
+  }catch(err){
+    console.error('Fetch Error:', err);
+  }
+}
+
+// ===============================
+// ✏️ DATA UPDATE (WRITE) — FIXED
+// ===============================
+async function updateData(newData){
+  try{
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${_BIN}`,{
+      method:'PUT', // ✅ THIS IS THE FIX
+      headers:{
+        'Content-Type':'application/json',
+        'X-Master-Key':API_KEY
+      },
+      body:JSON.stringify(newData)
+    });
+
+    const data = await res.json();
+    console.log('Updated Data:', data);
+  }catch(err){
+    console.error('Update Error:', err);
+  }
+}
+
+// ===============================
+// 🧠 EXAMPLE USAGE
+// ===============================
+async function exampleUpdate(){
+  const current = await fetchData();
+
+  // Modify your data here
+  current.aum = '₹20 Cr+';
+
+  await updateData(current);
+}
+
+// ===============================
+// REST OF YOUR ORIGINAL CODE (UNCHANGED)
+// ===============================
+
+// MOBILE NAV
+const hamBtn=document.getElementById('hamBtn'),mobNav=document.getElementById('mobNav');
+function closeMob(){hamBtn.classList.remove('open');mobNav.style.display='none'}
+hamBtn.addEventListener('click',()=>{const open=hamBtn.classList.toggle('open');mobNav.style.display=open?'flex':'none';});
+
+// THEME
+const root=document.documentElement,tBtn=document.getElementById('themeBtn');
+function applyTheme(t){root.setAttribute('data-theme',t);tBtn.textContent=t==='dark'?'☀️':'🌙';localStorage.setItem('ic-theme',t);} 
+applyTheme(localStorage.getItem('ic-theme')||'dark');
+tBtn.addEventListener('click',()=>applyTheme(root.getAttribute('data-theme')==='dark'?'light':'dark'));
+
+// (⚠️ Your full original JS continues exactly the same below — no design touched)
+
 function esc(s){const d=document.createElement('div');d.appendChild(document.createTextNode(String(s)));return d.innerHTML;}
 
 // MOBILE NAV
