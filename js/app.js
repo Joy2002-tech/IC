@@ -331,7 +331,7 @@ const DEFAULT_STATS = {
   ins:'50',  insUnit:'none'
 };
 // Hardcoded master key — embedded so all devices auto-sync
-const _MK = '$2a$10$lfvMBG.DfL.srrIrM7/uS..R.WKmcWpVSIKeaKtR0xFd2x08LruHK';
+const _MK = '$2a$10$SJWxpEd/v9bLl6Wg1KJpL.MEwzBJVg1eBgoLYbJBQdUPV1wSFYRlS';
 function getBinSetup(){
   // Always inject master key, preserve any saved binId
   try{
@@ -378,7 +378,7 @@ async function fetchLiveStats(){
         method:'POST',
         headers:{
           'Content-Type':'application/json',
-          'X-Master-Key': setup.key,
+          'X-Access-Key': setup.key,
           'X-Bin-Name':'igris-stats-live',
           'X-Bin-Private':'false'
         },
@@ -401,7 +401,7 @@ async function fetchLiveStats(){
   // Normal fetch from existing bin
   try{
     const res = await fetch(`https://api.jsonbin.io/v3/b/${setup.binId}/latest`,{
-      headers:{'X-Master-Key': setup.key}
+      headers:{'X-Access-Key': setup.key}
     });
     if(!res.ok) throw new Error('fetch failed');
     const data = await res.json();
@@ -427,7 +427,7 @@ async function pushLiveStats(stats){
       // Create new bin
       const res = await fetch('https://api.jsonbin.io/v3/b',{
         method:'POST',
-        headers:{'Content-Type':'application/json','X-Master-Key':setup.key,'X-Bin-Name':'igris-stats','X-Bin-Private':'false'},
+        headers:{'Content-Type':'application/json','X-Access-Key':setup.key,'X-Bin-Name':'igris-stats-live','X-Bin-Private':'false'},
         body: JSON.stringify(stats)
       });
       if(!res.ok) throw new Error('create failed');
@@ -441,7 +441,7 @@ async function pushLiveStats(stats){
       // Update existing bin
       const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`,{
         method:'PUT',
-        headers:{'Content-Type':'application/json','X-Master-Key':setup.key},
+        headers:{'Content-Type':'application/json','X-Access-Key':setup.key},
         body: JSON.stringify(stats)
       });
       if(!res.ok) throw new Error('update failed');
