@@ -331,7 +331,7 @@ const DEFAULT_STATS = {
 
 // ── CONFIG — paste Bin ID here after first admin save ──
 const _AK  = '$2a$10$SJWxpEd/v9bLl6Wg1KJpL.MEwzBJVg1eBgoLYbJBQdUPV1wSFYRlS';
-const _BIN = '';  // ← paste Bin ID here (e.g. '67f8a1b2e41b4d34e85f1c23')
+const _BIN = '$2a$10$lfvMBG.DfL.srrIrM7/uS..R.WKmcWpVSIKeaKtR0xFd2x08LruHK';  // ← paste Bin ID here (e.g. '67f8a1b2e41b4d34e85f1c23')
 
 function formatStat(val, unit, prefix=''){
   const n = parseFloat(val)||0;
