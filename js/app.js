@@ -363,14 +363,42 @@ function applyStats(s){
 
 async function fetchLiveStats(){
   const setup = getBinSetup();
-  if(!setup || !setup.key || !setup.binId){
-    // Fallback: use cached or defaults
+
+  // If no binId yet — try to find or create one automatically
+  if(!setup.binId){
+    // First show cached/defaults while we sort out the bin
     try{
       const cached = JSON.parse(localStorage.getItem(STATS_CACHE)||'null');
       applyStats(cached || DEFAULT_STATS);
     }catch(e){ applyStats(DEFAULT_STATS); }
+
+    // Try to create a public bin with default stats so all visitors can read it
+    try{
+      const res = await fetch('https://api.jsonbin.io/v3/b',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'X-Master-Key': setup.key,
+          'X-Bin-Name':'igris-stats-live',
+          'X-Bin-Private':'false'
+        },
+        body: JSON.stringify(DEFAULT_STATS)
+      });
+      if(res.ok){
+        const data = await res.json();
+        const binId = data.metadata.id;
+        // Save binId everywhere
+        const newSetup = {...setup, binId};
+        localStorage.setItem(BIN_SETUP_KEY, JSON.stringify(newSetup));
+        console.log('Igris Stats bin created:', binId);
+        // Now fetch from it
+        applyStats(DEFAULT_STATS);
+      }
+    }catch(e){ console.warn('Could not create stats bin:', e); }
     return;
   }
+
+  // Normal fetch from existing bin
   try{
     const res = await fetch(`https://api.jsonbin.io/v3/b/${setup.binId}/latest`,{
       headers:{'X-Master-Key': setup.key}
@@ -381,7 +409,6 @@ async function fetchLiveStats(){
     localStorage.setItem(STATS_CACHE, JSON.stringify(stats));
     applyStats(stats);
   }catch(e){
-    // fallback to cache
     try{
       const cached = JSON.parse(localStorage.getItem(STATS_CACHE)||'null');
       applyStats(cached || DEFAULT_STATS);
