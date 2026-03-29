@@ -2,7 +2,7 @@
 // 🔒 STATIC BIN CONFIG (FIXED)
 // ===============================
 const _BIN = '69c92fc45fdde574550f2016'; // ✅ stays constant forever
-const API_KEY = 'YOUR_API_KEY_HERE'; // ⚠️ replace with your key
+const API_KEY = '$2a$10$lfvMBG.DfL.srrIrM7/uS..R.WKmcWpVSIKeaKtR0xFd2x08LruHK'; // ⚠️ replace with your key
 
 function esc(s){const d=document.createElement('div');d.appendChild(document.createTextNode(String(s)));return d.innerHTML;}
 
