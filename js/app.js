@@ -322,26 +322,16 @@ calcSIP();calcLS();calcGoal();calcEMI();
   });
 })();
 
-// ── HERO STATS — JSONBin live sync ──
-const BIN_SETUP_KEY = 'igris-bin-setup';
-const STATS_CACHE   = 'igris-stats-cache';
+// ── HERO STATS — JSONBin live sync (no localStorage, always fresh) ──
 const DEFAULT_STATS = {
   aum:'12', aumUnit:'Cr',
   loans:'8', loansUnit:'Cr',
   ins:'50',  insUnit:'none'
 };
-// Hardcoded master key — embedded so all devices auto-sync
-const _MK = '$2a$10$SJWxpEd/v9bLl6Wg1KJpL.MEwzBJVg1eBgoLYbJBQdUPV1wSFYRlS';
-function getBinSetup(){
-  // Always inject master key, preserve any saved binId
-  try{
-    const saved = JSON.parse(localStorage.getItem(BIN_SETUP_KEY)||'null');
-    const binId = saved?.binId||'';
-    const setup = {key:_MK, binId};
-    localStorage.setItem(BIN_SETUP_KEY, JSON.stringify(setup));
-    return setup;
-  }catch(e){ return {key:_MK, binId:''}; }
-}
+
+// ── CONFIG — paste Bin ID here after first admin save ──
+const _AK  = '$2a$10$SJWxpEd/v9bLl6Wg1KJpL.MEwzBJVg1eBgoLYbJBQdUPV1wSFYRlS';
+const _BIN = '';  // ← paste Bin ID here (e.g. '67f8a1b2e41b4d34e85f1c23')
 
 function formatStat(val, unit, prefix=''){
   const n = parseFloat(val)||0;
@@ -349,109 +339,83 @@ function formatStat(val, unit, prefix=''){
   if(unit==='K')    return `${prefix}${n.toLocaleString('en-IN')}K+`;
   if(unit==='L')    return `${prefix}${n}L+`;
   if(unit==='Cr')   return `${prefix}${n}Cr+`;
-  return `${n}`;
+  return `${prefix}${n}`;
 }
 
 function applyStats(s){
   const el = id => document.getElementById(id);
-  if(el('aum-display'))   el('aum-display').textContent   = formatStat(s.aum,   s.aumUnit,   '₹');
-  if(el('loans-display')) el('loans-display').textContent = formatStat(s.loans, s.loansUnit, '₹');
-  if(el('ins-display'))   el('ins-display').textContent   = formatStat(s.ins,   s.insUnit,   '');
+  if(el('aum-display'))   el('aum-display').textContent   = formatStat(s.aum,   s.aumUnit||'Cr',   '₹');
+  if(el('loans-display')) el('loans-display').textContent = formatStat(s.loans, s.loansUnit||'Cr', '₹');
+  if(el('ins-display'))   el('ins-display').textContent   = formatStat(s.ins,   s.insUnit||'none', '');
 }
 
-// getBinSetup defined above with hardcoded key
-
+// ── FETCH — always from JSONBin, no localStorage ──
 async function fetchLiveStats(){
-  const setup = getBinSetup();
-
-  // If no binId yet — try to find or create one automatically
-  if(!setup.binId){
-    // First show cached/defaults while we sort out the bin
-    try{
-      const cached = JSON.parse(localStorage.getItem(STATS_CACHE)||'null');
-      applyStats(cached || DEFAULT_STATS);
-    }catch(e){ applyStats(DEFAULT_STATS); }
-
-    // Try to create a public bin with default stats so all visitors can read it
-    try{
-      const res = await fetch('https://api.jsonbin.io/v3/b',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'X-Access-Key': setup.key,
-          'X-Bin-Name':'igris-stats-live',
-          'X-Bin-Private':'false'
-        },
-        body: JSON.stringify(DEFAULT_STATS)
-      });
-      if(res.ok){
-        const data = await res.json();
-        const binId = data.metadata.id;
-        // Save binId everywhere
-        const newSetup = {...setup, binId};
-        localStorage.setItem(BIN_SETUP_KEY, JSON.stringify(newSetup));
-        console.log('Igris Stats bin created:', binId);
-        // Now fetch from it
-        applyStats(DEFAULT_STATS);
-      }
-    }catch(e){ console.warn('Could not create stats bin:', e); }
+  applyStats(DEFAULT_STATS); // show defaults instantly while fetching
+  if(!_BIN){
+    console.info('Igris stats: no Bin ID set yet — showing defaults');
     return;
   }
-
-  // Normal fetch from existing bin
   try{
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${setup.binId}/latest`,{
-      headers:{'X-Access-Key': setup.key}
+    const res = await fetch('https://api.jsonbin.io/v3/b/' + _BIN + '/latest', {
+      headers: {'X-Access-Key': _AK}
     });
-    if(!res.ok) throw new Error('fetch failed');
+    if(!res.ok) throw new Error('JSONBin fetch failed: ' + res.status);
     const data = await res.json();
-    const stats = data.record;
-    localStorage.setItem(STATS_CACHE, JSON.stringify(stats));
-    applyStats(stats);
-  }catch(e){
-    try{
-      const cached = JSON.parse(localStorage.getItem(STATS_CACHE)||'null');
-      applyStats(cached || DEFAULT_STATS);
-    }catch(e2){ applyStats(DEFAULT_STATS); }
+    applyStats(data.record);
+  } catch(e){
+    console.warn('Stats fetch error:', e);
+    // Keep showing defaults — no localStorage fallback
   }
 }
 
+// ── PUSH — save to JSONBin, no localStorage ──
 async function pushLiveStats(stats){
-  const setup = getBinSetup();
-  if(!setup || !setup.key) return false;
-
-  try{
-    let binId = setup.binId;
-
-    if(!binId){
-      // Create new bin
-      const res = await fetch('https://api.jsonbin.io/v3/b',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-Access-Key':setup.key,'X-Bin-Name':'igris-stats-live','X-Bin-Private':'false'},
+  if(!_BIN){
+    // No bin yet — create one
+    try{
+      const res = await fetch('https://api.jsonbin.io/v3/b', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key': _AK,
+          'X-Bin-Name': 'igris-stats-live',
+          'X-Bin-Private': 'false'
+        },
         body: JSON.stringify(stats)
       });
-      if(!res.ok) throw new Error('create failed');
+      if(!res.ok) throw new Error('Create failed: ' + res.status);
       const data = await res.json();
-      binId = data.metadata.id;
-      // Save bin ID
-      const newSetup = {...setup, binId};
-      localStorage.setItem(BIN_SETUP_KEY, JSON.stringify(newSetup));
-      document.getElementById('admin-binid').value = binId;
-    } else {
-      // Update existing bin
-      const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`,{
-        method:'PUT',
-        headers:{'Content-Type':'application/json','X-Access-Key':setup.key},
-        body: JSON.stringify(stats)
-      });
-      if(!res.ok) throw new Error('update failed');
+      const newBinId = data.metadata.id;
+      alert(
+        'Bin created successfully!\n\n' +
+        'Bin ID: ' + newBinId + '\n\n' +
+        'Now paste this into app.js as the _BIN value:\n' +
+        "const _BIN = '" + newBinId + "';\n\n" +
+        'Then push app.js to GitHub — done!'
+      );
+      return {ok: true, created: true, binId: newBinId};
+    } catch(e){
+      console.error('Bin create error:', e);
+      return {ok: false, error: e.message};
     }
+  }
 
-    localStorage.setItem(STATS_CACHE, JSON.stringify(stats));
-    return true;
-  }catch(e){
-    console.warn('JSONBin error:', e);
-    return false;
+  // Update existing bin
+  try{
+    const res = await fetch('https://api.jsonbin.io/v3/b/' + _BIN, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Key': _AK
+      },
+      body: JSON.stringify(stats)
+    });
+    if(!res.ok) throw new Error('Update failed: ' + res.status);
+    return {ok: true};
+  } catch(e){
+    console.error('Bin update error:', e);
+    return {ok: false, error: e.message};
   }
 }
 
@@ -462,7 +426,7 @@ function updatePreviews(){
     if(!el) return;
     const v = get(valId)?.value;
     const u = get(unitId)?.value;
-    if(v) el.textContent = '→ Will show as: ' + formatStat(v, u, prefix);
+    if(v) el.textContent = 'Will show as: ' + formatStat(v, u, prefix);
     else el.textContent = '';
   };
   pv('admin-aum',   'admin-aum-unit',   'aum-preview',   '₹');
@@ -470,14 +434,7 @@ function updatePreviews(){
   pv('admin-ins',   'admin-ins-unit',   'ins-preview',   '');
 }
 
-function saveApiSetup(){
-  const key   = document.getElementById('admin-binkey')?.value?.trim();
-  const binId = document.getElementById('admin-binid')?.value?.trim();
-  if(!key){ alert('Please enter a JSONBin Master Key.'); return; }
-  localStorage.setItem(BIN_SETUP_KEY, JSON.stringify({key, binId}));
-  document.getElementById('admin-setup').style.display = 'none';
-  alert('API setup saved! Now you can update stats.');
-}
+function saveApiSetup(){ /* no-op — key is hardcoded */ }
 
 async function saveAdminStats(){
   const btn = document.getElementById('admin-save-btn');
@@ -485,87 +442,67 @@ async function saveAdminStats(){
   btn.textContent = 'Saving…'; btn.disabled = true;
 
   const stats = {
-    aum:      document.getElementById('admin-aum')?.value   || DEFAULT_STATS.aum,
-    aumUnit:  document.getElementById('admin-aum-unit')?.value || DEFAULT_STATS.aumUnit,
-    loans:    document.getElementById('admin-loans')?.value  || DEFAULT_STATS.loans,
-    loansUnit:document.getElementById('admin-loans-unit')?.value || DEFAULT_STATS.loansUnit,
-    ins:      document.getElementById('admin-ins')?.value    || DEFAULT_STATS.ins,
-    insUnit:  document.getElementById('admin-ins-unit')?.value || DEFAULT_STATS.insUnit,
+    aum:       document.getElementById('admin-aum')?.value       || DEFAULT_STATS.aum,
+    aumUnit:   document.getElementById('admin-aum-unit')?.value  || DEFAULT_STATS.aumUnit,
+    loans:     document.getElementById('admin-loans')?.value     || DEFAULT_STATS.loans,
+    loansUnit: document.getElementById('admin-loans-unit')?.value|| DEFAULT_STATS.loansUnit,
+    ins:       document.getElementById('admin-ins')?.value       || DEFAULT_STATS.ins,
+    insUnit:   document.getElementById('admin-ins-unit')?.value  || DEFAULT_STATS.insUnit,
   };
 
-  // Always apply locally first
-  applyStats(stats);
-  localStorage.setItem(STATS_CACHE, JSON.stringify(stats));
+  applyStats(stats); // update page immediately
 
-  const setup = getBinSetup();
-  if(!setup || !setup.key){
-    status.style.display='block';
-    status.style.background='rgba(245,158,11,.12)';
-    status.style.color='#f59e0b';
-    status.style.border='1px solid rgba(245,158,11,.3)';
-    status.textContent='⚠️ Saved locally only. Set up JSONBin API key to push to all visitors.';
-    btn.textContent='Update Live Stats →'; btn.disabled=false;
-    setTimeout(()=>{ status.style.display='none'; closeAdmin(); },3000);
-    return;
-  }
+  const result = await pushLiveStats(stats);
 
-  const ok = await pushLiveStats(stats);
-  status.style.display='block';
-  if(ok){
-    status.style.background='rgba(34,197,94,.1)';
-    status.style.color='#16a34a';
-    status.style.border='1px solid rgba(34,197,94,.3)';
-    status.textContent='✓ Stats updated! All visitors will see the new values.';
-    setTimeout(()=>{ status.style.display='none'; closeAdmin(); },2500);
+  status.style.display = 'block';
+  if(result.ok){
+    status.style.cssText = 'display:block;padding:10px 14px;border-radius:8px;font-size:12px;margin-top:16px;text-align:center;background:rgba(34,197,94,.1);color:#16a34a;border:1px solid rgba(34,197,94,.3)';
+    status.textContent = result.created
+      ? '✓ Bin created! Copy the Bin ID from the popup and paste into app.js.'
+      : '✓ Stats updated live — all visitors worldwide see the new values.';
+    if(!result.created) setTimeout(()=>{ status.style.display='none'; closeAdmin(); }, 2500);
   } else {
-    status.style.background='rgba(239,68,68,.1)';
-    status.style.color='#dc2626';
-    status.style.border='1px solid rgba(239,68,68,.3)';
-    status.textContent='⚠️ JSONBin save failed — saved locally only. Check your API key.';
-    setTimeout(()=>{ status.style.display='none'; }, 4000);
+    status.style.cssText = 'display:block;padding:10px 14px;border-radius:8px;font-size:12px;margin-top:16px;text-align:center;background:rgba(239,68,68,.1);color:#dc2626;border:1px solid rgba(239,68,68,.3)';
+    status.textContent = '✗ Failed: ' + (result.error || 'unknown error') + '. Check console.';
   }
-  btn.textContent='Update Live Stats →'; btn.disabled=false;
+  btn.textContent = 'Update Live Stats →'; btn.disabled = false;
 }
 
 function openAdmin(){
-  const setup = getBinSetup();
   const setupDiv = document.getElementById('admin-setup');
-  if(setupDiv) setupDiv.style.display = 'none'; // key is hardcoded, never show setup
+  if(setupDiv) setupDiv.style.display = 'none';
 
-  // Pre-fill fields from cache or defaults
-  let s = DEFAULT_STATS;
-  try{ const c=JSON.parse(localStorage.getItem(STATS_CACHE)||'null'); if(c) s=c; }catch(e){}
-  const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
-  set('admin-aum',        s.aum);
-  set('admin-aum-unit',   s.aumUnit   || 'Cr');
-  set('admin-loans',      s.loans);
-  set('admin-loans-unit', s.loansUnit || 'Cr');
-  set('admin-ins',        s.ins);
-  set('admin-ins-unit',   s.insUnit   || 'none');
-  if(setup?.binId){ set('admin-binid', setup.binId); }
+  // Pre-fill with current displayed values
+  const setV = (id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
+  setV('admin-aum',        DEFAULT_STATS.aum);
+  setV('admin-aum-unit',   DEFAULT_STATS.aumUnit);
+  setV('admin-loans',      DEFAULT_STATS.loans);
+  setV('admin-loans-unit', DEFAULT_STATS.loansUnit);
+  setV('admin-ins',        DEFAULT_STATS.ins);
+  setV('admin-ins-unit',   DEFAULT_STATS.insUnit);
 
-  // Wire up live previews
   ['admin-aum','admin-aum-unit','admin-loans','admin-loans-unit','admin-ins','admin-ins-unit']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('input',updatePreviews); });
   updatePreviews();
 
-  document.getElementById('admin-overlay').style.display='block';
-  document.getElementById('admin-panel').style.display='block';
-  document.body.style.overflow='hidden';
+  document.getElementById('admin-overlay').style.display = 'block';
+  document.getElementById('admin-panel').style.display   = 'block';
+  document.body.style.overflow = 'hidden';
 }
 
 function closeAdmin(){
-  document.getElementById('admin-overlay').style.display='none';
-  document.getElementById('admin-panel').style.display='none';
-  document.body.style.overflow='';
+  document.getElementById('admin-overlay').style.display = 'none';
+  document.getElementById('admin-panel').style.display   = 'none';
+  document.body.style.overflow = '';
 }
 
-// Hash trigger
 function checkAdminHash(){
-  if(location.hash==='#admin-igris'){ openAdmin(); history.replaceState(null,'',location.pathname); }
+  if(location.hash === '#admin-igris'){
+    openAdmin();
+    history.replaceState(null, '', location.pathname);
+  }
 }
 window.addEventListener('hashchange', checkAdminHash);
 checkAdminHash();
-
 // Load stats for all visitors on page load
 fetchLiveStats();
