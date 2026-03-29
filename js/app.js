@@ -2,7 +2,7 @@
 🔒 CONFIG (SET ONLY ONCE)
 =============================== */
 const _BIN = ''; // 👈 PASTE YOUR BIN ID ONCE
-const _API_KEY = ''; // 👈 PASTE YOUR JSONBIN KEY ONCE
+const _API_KEY = '$2a$10$SJWxpEd/v9bLl6Wg1KJpL.MEwzBJVg1eBgoLYbJBQdUPV1wSFYRlS'; // 👈 PASTE YOUR JSONBIN KEY ONCE
 
 /* ===============================
 BASIC UTIL
