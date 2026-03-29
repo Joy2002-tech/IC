@@ -330,6 +330,18 @@ const DEFAULT_STATS = {
   loans:'8', loansUnit:'Cr',
   ins:'50',  insUnit:'none'
 };
+// Hardcoded master key — embedded so all devices auto-sync
+const _MK = '$2a$10$lfvMBG.DfL.srrIrM7/uS..R.WKmcWpVSIKeaKtR0xFd2x08LruHK';
+function getBinSetup(){
+  // Always inject master key, preserve any saved binId
+  try{
+    const saved = JSON.parse(localStorage.getItem(BIN_SETUP_KEY)||'null');
+    const binId = saved?.binId||'';
+    const setup = {key:_MK, binId};
+    localStorage.setItem(BIN_SETUP_KEY, JSON.stringify(setup));
+    return setup;
+  }catch(e){ return {key:_MK, binId:''}; }
+}
 
 function formatStat(val, unit, prefix=''){
   const n = parseFloat(val)||0;
@@ -347,9 +359,7 @@ function applyStats(s){
   if(el('ins-display'))   el('ins-display').textContent   = formatStat(s.ins,   s.insUnit,   '');
 }
 
-function getBinSetup(){
-  try{ return JSON.parse(localStorage.getItem(BIN_SETUP_KEY)||'null'); }catch(e){ return null; }
-}
+// getBinSetup defined above with hardcoded key
 
 async function fetchLiveStats(){
   const setup = getBinSetup();
@@ -493,7 +503,7 @@ async function saveAdminStats(){
 function openAdmin(){
   const setup = getBinSetup();
   const setupDiv = document.getElementById('admin-setup');
-  if(setupDiv) setupDiv.style.display = (!setup || !setup.key) ? 'block' : 'none';
+  if(setupDiv) setupDiv.style.display = 'none'; // key is hardcoded, never show setup
 
   // Pre-fill fields from cache or defaults
   let s = DEFAULT_STATS;
