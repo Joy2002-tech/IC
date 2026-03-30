@@ -322,20 +322,12 @@ calcSIP();calcLS();calcGoal();calcEMI();
   });
 })();
 
-// ── HERO STATS — GitHub API sync ──
-// stats.json lives in the repo root. Admin panel commits directly to it.
-// Every visitor reads it fresh. Pushing website code never touches stats.json.
+// ── HERO STATS — reads stats.json from GitHub ──
+// To update numbers: edit stats.json in your GitHub repo directly.
+// No admin panel, no API, no tokens. Just edit the file.
 
-const REPO  = 'Joy2002-tech/Igris-Capital';
-const FILE  = 'stats.json';
-const TOKEN = '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';
-const RAW   = 'https://raw.githubusercontent.com/' + REPO + '/main/' + FILE;
-const API   = 'https://api.github.com/repos/' + REPO + '/contents/' + FILE;
-
+const STATS_URL = 'https://raw.githubusercontent.com/Joy2002-tech/Igris-Capital/main/stats.json';
 const DEFAULT_STATS = { aum:'12', aumUnit:'Cr', loans:'8', loansUnit:'Cr', ins:'50', insUnit:'none' };
-
-// Holds live stats in memory for admin prefill
-let _live = null;
 
 function formatStat(val, unit, prefix=''){
   const n = parseFloat(val) || 0;
@@ -347,157 +339,22 @@ function formatStat(val, unit, prefix=''){
 }
 
 function applyStats(s){
-  _live = s;
   const el = id => document.getElementById(id);
   if(el('aum-display'))   el('aum-display').textContent   = formatStat(s.aum,   s.aumUnit   || 'Cr',   '₹');
   if(el('loans-display')) el('loans-display').textContent = formatStat(s.loans, s.loansUnit || 'Cr',   '₹');
   if(el('ins-display'))   el('ins-display').textContent   = formatStat(s.ins,   s.insUnit   || 'none', '');
 }
 
-// ── FETCH: read raw stats.json from GitHub (no auth needed, public repo) ──
 async function fetchLiveStats(){
   applyStats(DEFAULT_STATS);
   try{
-    const res = await fetch(RAW + '?t=' + Date.now()); // cache-bust
+    const res = await fetch(STATS_URL + '?t=' + Date.now());
     if(!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    applyStats(data);
+    applyStats(await res.json());
   } catch(e){
-    console.warn('Stats fetch failed, using defaults:', e);
+    console.warn('Could not load stats.json, using defaults:', e);
   }
 }
-
-// ── PUSH: commit updated stats.json to GitHub via API ──
-async function pushLiveStats(stats){
-  try{
-    // 1. Get current file SHA (required for update)
-    const getRes = await fetch(API, {
-      headers: {
-        'Authorization': 'Bearer ' + TOKEN,
-        'Accept': 'application/vnd.github+json'
-      }
-    });
-    if(!getRes.ok) throw new Error('Cannot read file: ' + getRes.status);
-    const fileData = await getRes.json();
-    const sha = fileData.sha;
-
-    // 2. Commit updated content
-    const content = btoa(JSON.stringify(stats, null, 2));
-    const putRes = await fetch(API, {
-      method: 'PUT',
-      headers: {
-        'Authorization': 'Bearer ' + TOKEN,
-        'Accept': 'application/vnd.github+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message: 'Update stats via admin panel',
-        content: content,
-        sha: sha
-      })
-    });
-    if(!putRes.ok){
-      const err = await putRes.json();
-      throw new Error(err.message || putRes.status);
-    }
-    return { ok: true };
-  } catch(e){
-    console.error('Stats push failed:', e);
-    return { ok: false, error: e.message };
-  }
-}
-
-// ── ADMIN PANEL ──
-function updatePreviews(){
-  const pv = (valId, unitId, previewId, prefix) => {
-    const el = document.getElementById(previewId);
-    if(!el) return;
-    const v = document.getElementById(valId)?.value;
-    const u = document.getElementById(unitId)?.value;
-    el.textContent = v ? 'Will show: ' + formatStat(v, u, prefix) : '';
-  };
-  pv('admin-aum',   'admin-aum-unit',   'aum-preview',   '₹');
-  pv('admin-loans', 'admin-loans-unit', 'loans-preview', '₹');
-  pv('admin-ins',   'admin-ins-unit',   'ins-preview',   '');
-}
-
-function saveApiSetup(){ /* no-op — hardcoded */ }
-
-async function saveAdminStats(){
-  const btn    = document.getElementById('admin-save-btn');
-  const status = document.getElementById('admin-save-status');
-  btn.textContent = 'Saving…';
-  btn.disabled = true;
-
-  const stats = {
-    aum:       document.getElementById('admin-aum')?.value        || DEFAULT_STATS.aum,
-    aumUnit:   document.getElementById('admin-aum-unit')?.value   || DEFAULT_STATS.aumUnit,
-    loans:     document.getElementById('admin-loans')?.value      || DEFAULT_STATS.loans,
-    loansUnit: document.getElementById('admin-loans-unit')?.value || DEFAULT_STATS.loansUnit,
-    ins:       document.getElementById('admin-ins')?.value        || DEFAULT_STATS.ins,
-    insUnit:   document.getElementById('admin-ins-unit')?.value   || DEFAULT_STATS.insUnit,
-  };
-
-  applyStats(stats); // instant local update
-
-  const result = await pushLiveStats(stats);
-
-  status.style.display = 'block';
-  if(result.ok){
-    status.style.cssText = 'display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-top:16px;text-align:center;background:rgba(34,197,94,.12);color:#16a34a;border:1px solid rgba(34,197,94,.3)';
-    status.textContent = '✓ Saved to GitHub! All visitors worldwide now see the updated numbers.';
-    setTimeout(() => { status.style.display = 'none'; closeAdmin(); }, 3000);
-  } else {
-    status.style.cssText = 'display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-top:16px;text-align:center;background:rgba(239,68,68,.1);color:#dc2626;border:1px solid rgba(239,68,68,.3)';
-    status.textContent = '✗ Save failed: ' + (result.error || 'unknown error');
-  }
-
-  btn.textContent = 'Update Live Stats →';
-  btn.disabled = false;
-}
-
-function openAdmin(){
-  // Hide setup panel — everything is hardcoded
-  const setupDiv = document.getElementById('admin-setup');
-  if(setupDiv) setupDiv.style.display = 'none';
-
-  // Prefill with current live values
-  const s = _live || DEFAULT_STATS;
-  const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
-  set('admin-aum',        s.aum);
-  set('admin-aum-unit',   s.aumUnit   || 'Cr');
-  set('admin-loans',      s.loans);
-  set('admin-loans-unit', s.loansUnit || 'Cr');
-  set('admin-ins',        s.ins);
-  set('admin-ins-unit',   s.insUnit   || 'none');
-
-  // Wire up live previews
-  ['admin-aum','admin-aum-unit','admin-loans','admin-loans-unit','admin-ins','admin-ins-unit']
-    .forEach(id => {
-      const el = document.getElementById(id);
-      if(el){ el.removeEventListener('input', updatePreviews); el.addEventListener('input', updatePreviews); }
-    });
-  updatePreviews();
-
-  document.getElementById('admin-overlay').style.display = 'block';
-  document.getElementById('admin-panel').style.display   = 'block';
-  document.body.style.overflow = 'hidden';
-}
-
-function closeAdmin(){
-  document.getElementById('admin-overlay').style.display = 'none';
-  document.getElementById('admin-panel').style.display   = 'none';
-  document.body.style.overflow = '';
-}
-
-function checkAdminHash(){
-  if(location.hash === '#admin-igris'){
-    openAdmin();
-    history.replaceState(null, '', location.pathname);
-  }
-}
-window.addEventListener('hashchange', checkAdminHash);
-checkAdminHash();
 
 // Load stats for all visitors on page load
 fetchLiveStats();
