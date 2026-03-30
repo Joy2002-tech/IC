@@ -102,6 +102,35 @@
         </div>
       </div>
 
+      <!-- CENTRE: rotating 3D pawn -->
+      <div class="hero-pawn-wrap fu d3">
+        <div class="pawn-glow"></div>
+        <div class="pawn-ring pawn-ring-1"></div>
+        <div class="pawn-ring pawn-ring-2"></div>
+        <div class="pawn-spin">
+          <svg class="pawn-svg" viewBox="0 0 72 104" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="pawnGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#93c5fd"/>
+                <stop offset="45%" stop-color="#2563c7"/>
+                <stop offset="100%" stop-color="#1e3a8a"/>
+              </linearGradient>
+              <filter id="pawnGlow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <circle cx="36" cy="15" r="14" fill="url(#pawnGrad)" filter="url(#pawnGlow)"/>
+            <rect x="28" y="28" width="16" height="4" rx="2" fill="url(#pawnGrad)"/>
+            <rect x="26" y="31" width="20" height="4.5" rx="2.25" fill="url(#pawnGrad)"/>
+            <path d="M32 35.5 C30 38 28 41 28 44 C26 48 24 54 22 62 L50 62 C48 54 46 48 44 44 C44 41 42 38 40 35.5 Z" fill="url(#pawnGrad)" filter="url(#pawnGlow)"/>
+            <rect x="16" y="62" width="40" height="7" rx="3.5" fill="url(#pawnGrad)"/>
+            <rect x="9" y="69" width="54" height="10" rx="5" fill="url(#pawnGrad)"/>
+            <rect x="6" y="79" width="60" height="7" rx="3.5" fill="url(#pawnGrad)"/>
+          </svg>
+        </div>
+      </div>
+
       <!-- RIGHT: stats cards zigzag -->
       <div class="hero-stats-col fu d2">
         <div class="hstat-row hstat-row-1">
