@@ -326,7 +326,7 @@ calcSIP();calcLS();calcGoal();calcEMI();
 // One fixed bin. Always update the same bin. Never create a new one.
 const DEFAULT_STATS = { aum:'12', aumUnit:'Cr', loans:'8', loansUnit:'Cr', ins:'50', insUnit:'none' };
 const _AK  = '$2a$10$SJWxpEd/v9bLl6Wg1KJpL.MEwzBJVg1eBgoLYbJBQdUPV1wSFYRlS';
-const _BIN = '69c9d5e836566621a85ddb9d';  // ← paste Bin ID here once after first setup, never change again
+const _BIN = '69c9d695aaba882197a6588d';  // ← paste Bin ID here once after first setup, never change again
 
 // Keeps last fetched stats in memory (not localStorage) for admin prefill
 let _liveStats = null;
