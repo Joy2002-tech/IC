@@ -328,7 +328,7 @@ calcSIP();calcLS();calcGoal();calcEMI();
 
 const REPO  = 'Joy2002-tech/Igris-Capital';
 const FILE  = 'stats.json';
-const TOKEN = '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';
+const TOKEN = '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';
 const RAW   = 'https://raw.githubusercontent.com/' + REPO + '/main/' + FILE;
 const API   = 'https://api.github.com/repos/' + REPO + '/contents/' + FILE;
 
