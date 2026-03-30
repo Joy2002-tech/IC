@@ -56,7 +56,7 @@ h2 em{font-style:italic;color:var(--acc)}
 .hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:0 52px;position:relative;overflow:hidden}
 .hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 55% at 70% 48%,var(--accsub) 0%,transparent 65%),linear-gradient(150deg,var(--bg) 0%,var(--bg2) 100%)}
 .hero-geo{position:absolute;right:5%;top:50%;transform:translateY(-50%);width:290px;height:290px;z-index:1;opacity:.4}
-.hero-inner{position:relative;z-index:2;display:grid;grid-template-columns:1fr 380px;gap:60px;align-items:center;width:100%}
+.hero-inner{position:relative;z-index:2;display:grid;grid-template-columns:1fr 220px 340px;gap:40px;align-items:center;width:100%}
 .hero-c{max-width:100%}
 .hero-eye{font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--acc);margin-bottom:22px;opacity:.8}
 h1{font-family:'Cormorant Garamond',serif;font-size:clamp(44px,6vw,80px);font-weight:300;line-height:1.05;color:var(--txt);letter-spacing:-.02em;margin-bottom:22px}
@@ -1130,4 +1130,88 @@ footer{background:var(--bg);border-top:1px solid var(--bdr);padding:44px 52px 28
 .inf-field.inf-active{
   border-color:rgba(74,222,128,.35);
   background:rgba(74,222,128,.04);
+}
+
+/* ── HERO ROTATING PAWN ── */
+.hero-pawn-wrap{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:220px;
+  height:320px;
+  z-index:2;
+}
+
+/* Outer glow blob */
+.pawn-glow{
+  position:absolute;
+  width:180px;
+  height:180px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(37,99,199,.45) 0%, rgba(37,99,199,.0) 70%);
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  animation:pawnPulse 3s ease-in-out infinite;
+  pointer-events:none;
+}
+
+/* Orbiting rings */
+.pawn-ring{
+  position:absolute;
+  border-radius:50%;
+  border:1px solid rgba(96,165,250,.25);
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+.pawn-ring-1{
+  width:180px;
+  height:180px;
+  animation:ringOrbit 8s linear infinite;
+  border-style:dashed;
+}
+.pawn-ring-2{
+  width:240px;
+  height:240px;
+  animation:ringOrbit 14s linear infinite reverse;
+  border-color:rgba(96,165,250,.12);
+}
+
+/* Spinning pawn container */
+.pawn-spin{
+  position:relative;
+  z-index:3;
+  animation:pawnSpin 8s linear infinite;
+  filter:drop-shadow(0 0 18px rgba(37,99,199,.7)) drop-shadow(0 0 40px rgba(96,165,250,.3));
+}
+.pawn-svg{
+  width:110px;
+  height:auto;
+}
+
+/* Keyframes */
+@keyframes pawnSpin{
+  from{ transform:rotateY(0deg); }
+  to{   transform:rotateY(360deg); }
+}
+@keyframes pawnPulse{
+  0%,100%{ opacity:.6; transform:translate(-50%,-50%) scale(1); }
+  50%{     opacity:1;  transform:translate(-50%,-50%) scale(1.15); }
+}
+@keyframes ringOrbit{
+  from{ transform:translate(-50%,-50%) rotate(0deg); }
+  to{   transform:translate(-50%,-50%) rotate(360deg); }
+}
+
+/* Responsive — hide pawn on smaller screens to save space */
+@media(max-width:1024px){
+  .hero-inner{grid-template-columns:1fr 280px;}
+  .hero-pawn-wrap{display:none;}
+}
+@media(max-width:860px){
+  .hero-inner{grid-template-columns:1fr;}
+  .hero-pawn-wrap{display:none;}
 }
