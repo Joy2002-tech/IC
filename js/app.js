@@ -322,153 +322,182 @@ calcSIP();calcLS();calcGoal();calcEMI();
   });
 })();
 
-// ── HERO STATS — JSONBin live sync ──
-// One fixed bin. Always update the same bin. Never create a new one.
-const DEFAULT_STATS = { aum:'12', aumUnit:'Cr', loans:'8', loansUnit:'Cr', ins:'50', insUnit:'none' };
-const _AK  = '$2a$10$SJWxpEd/v9bLl6Wg1KJpL.MEwzBJVg1eBgoLYbJBQdUPV1wSFYRlS';
-const _BIN = '69c9d695aaba882197a6588d';  // ← paste Bin ID here once after first setup, never change again
+// ── HERO STATS — GitHub API sync ──
+// stats.json lives in the repo root. Admin panel commits directly to it.
+// Every visitor reads it fresh. Pushing website code never touches stats.json.
 
-// Keeps last fetched stats in memory (not localStorage) for admin prefill
-let _liveStats = null;
+const REPO  = 'Joy2002-tech/Igris-Capital';
+const FILE  = 'stats.json';
+const TOKEN = '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';
+const RAW   = 'https://raw.githubusercontent.com/' + REPO + '/main/' + FILE;
+const API   = 'https://api.github.com/repos/' + REPO + '/contents/' + FILE;
+
+const DEFAULT_STATS = { aum:'12', aumUnit:'Cr', loans:'8', loansUnit:'Cr', ins:'50', insUnit:'none' };
+
+// Holds live stats in memory for admin prefill
+let _live = null;
 
 function formatStat(val, unit, prefix=''){
-  const n = parseFloat(val)||0;
-  if(unit==='none') return `${n}+`;
-  if(unit==='K')    return `${prefix}${n.toLocaleString('en-IN')}K+`;
-  if(unit==='L')    return `${prefix}${n}L+`;
-  if(unit==='Cr')   return `${prefix}${n}Cr+`;
-  return `${prefix}${n}`;
+  const n = parseFloat(val) || 0;
+  if(unit === 'none') return n + '+';
+  if(unit === 'K')    return prefix + n.toLocaleString('en-IN') + 'K+';
+  if(unit === 'L')    return prefix + n + 'L+';
+  if(unit === 'Cr')   return prefix + n + 'Cr+';
+  return prefix + n;
 }
 
 function applyStats(s){
-  _liveStats = s; // keep in memory for admin panel prefill
+  _live = s;
   const el = id => document.getElementById(id);
-  if(el('aum-display'))   el('aum-display').textContent   = formatStat(s.aum,   s.aumUnit||'Cr',   '₹');
-  if(el('loans-display')) el('loans-display').textContent = formatStat(s.loans, s.loansUnit||'Cr', '₹');
-  if(el('ins-display'))   el('ins-display').textContent   = formatStat(s.ins,   s.insUnit||'none', '');
+  if(el('aum-display'))   el('aum-display').textContent   = formatStat(s.aum,   s.aumUnit   || 'Cr',   '₹');
+  if(el('loans-display')) el('loans-display').textContent = formatStat(s.loans, s.loansUnit || 'Cr',   '₹');
+  if(el('ins-display'))   el('ins-display').textContent   = formatStat(s.ins,   s.insUnit   || 'none', '');
 }
 
-// ── FETCH live stats every page load ──
+// ── FETCH: read raw stats.json from GitHub (no auth needed, public repo) ──
 async function fetchLiveStats(){
-  applyStats(DEFAULT_STATS); // show immediately
-  if(!_BIN){ console.info('No Bin ID set — using defaults'); return; }
+  applyStats(DEFAULT_STATS);
   try{
-    const res = await fetch('https://api.jsonbin.io/v3/b/'+_BIN+'/latest',
-      { headers:{'X-Access-Key':_AK} });
+    const res = await fetch(RAW + '?t=' + Date.now()); // cache-bust
     if(!res.ok) throw new Error(res.status);
     const data = await res.json();
-    applyStats(data.record);
-  } catch(e){ console.warn('Stats fetch failed:',e); }
-}
-
-// ── PUSH stats — always PUT to same bin ──
-async function pushLiveStats(stats){
-  if(!_BIN){
-    // First time only: create the bin, show ID to copy
-    try{
-      const res = await fetch('https://api.jsonbin.io/v3/b', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-Access-Key':_AK,
-                 'X-Bin-Name':'igris-stats-live','X-Bin-Private':'false'},
-        body: JSON.stringify(stats)
-      });
-      if(!res.ok) throw new Error('Create: '+res.status);
-      const d = await res.json();
-      const id = d.metadata.id;
-      alert('✅ JSONBin created!\n\nBin ID:\n'+id+'\n\nOpen app.js, find:\nconst _BIN = \'\';\nReplace with:\nconst _BIN = \''+id+'\';\n\nPush to GitHub once — you never need to do this again.');
-      return {ok:true, newBin:true};
-    } catch(e){ return {ok:false, error:e.message}; }
+    applyStats(data);
+  } catch(e){
+    console.warn('Stats fetch failed, using defaults:', e);
   }
-  // Normal case — just update the existing bin
+}
+
+// ── PUSH: commit updated stats.json to GitHub via API ──
+async function pushLiveStats(stats){
   try{
-    const res = await fetch('https://api.jsonbin.io/v3/b/'+_BIN, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-Access-Key':_AK},
-      body: JSON.stringify(stats)
+    // 1. Get current file SHA (required for update)
+    const getRes = await fetch(API, {
+      headers: {
+        'Authorization': 'Bearer ' + TOKEN,
+        'Accept': 'application/vnd.github+json'
+      }
     });
-    if(!res.ok) throw new Error('Update: '+res.status);
-    return {ok:true};
-  } catch(e){ return {ok:false, error:e.message}; }
+    if(!getRes.ok) throw new Error('Cannot read file: ' + getRes.status);
+    const fileData = await getRes.json();
+    const sha = fileData.sha;
+
+    // 2. Commit updated content
+    const content = btoa(JSON.stringify(stats, null, 2));
+    const putRes = await fetch(API, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + TOKEN,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: 'Update stats via admin panel',
+        content: content,
+        sha: sha
+      })
+    });
+    if(!putRes.ok){
+      const err = await putRes.json();
+      throw new Error(err.message || putRes.status);
+    }
+    return { ok: true };
+  } catch(e){
+    console.error('Stats push failed:', e);
+    return { ok: false, error: e.message };
+  }
 }
 
+// ── ADMIN PANEL ──
 function updatePreviews(){
-  const pv = (valId,unitId,previewId,prefix) => {
-    const el=document.getElementById(previewId);
+  const pv = (valId, unitId, previewId, prefix) => {
+    const el = document.getElementById(previewId);
     if(!el) return;
-    const v=document.getElementById(valId)?.value;
-    const u=document.getElementById(unitId)?.value;
-    el.textContent = v ? 'Will show: '+formatStat(v,u,prefix) : '';
+    const v = document.getElementById(valId)?.value;
+    const u = document.getElementById(unitId)?.value;
+    el.textContent = v ? 'Will show: ' + formatStat(v, u, prefix) : '';
   };
-  pv('admin-aum',  'admin-aum-unit',  'aum-preview',  '₹');
-  pv('admin-loans','admin-loans-unit','loans-preview', '₹');
-  pv('admin-ins',  'admin-ins-unit',  'ins-preview',  '');
+  pv('admin-aum',   'admin-aum-unit',   'aum-preview',   '₹');
+  pv('admin-loans', 'admin-loans-unit', 'loans-preview', '₹');
+  pv('admin-ins',   'admin-ins-unit',   'ins-preview',   '');
 }
 
-function saveApiSetup(){ /* key hardcoded — no setup needed */ }
+function saveApiSetup(){ /* no-op — hardcoded */ }
 
 async function saveAdminStats(){
   const btn    = document.getElementById('admin-save-btn');
   const status = document.getElementById('admin-save-status');
-  btn.textContent='Saving…'; btn.disabled=true;
+  btn.textContent = 'Saving…';
+  btn.disabled = true;
 
   const stats = {
-    aum:       document.getElementById('admin-aum')?.value       || DEFAULT_STATS.aum,
-    aumUnit:   document.getElementById('admin-aum-unit')?.value  || DEFAULT_STATS.aumUnit,
-    loans:     document.getElementById('admin-loans')?.value     || DEFAULT_STATS.loans,
-    loansUnit: document.getElementById('admin-loans-unit')?.value|| DEFAULT_STATS.loansUnit,
-    ins:       document.getElementById('admin-ins')?.value       || DEFAULT_STATS.ins,
-    insUnit:   document.getElementById('admin-ins-unit')?.value  || DEFAULT_STATS.insUnit,
+    aum:       document.getElementById('admin-aum')?.value        || DEFAULT_STATS.aum,
+    aumUnit:   document.getElementById('admin-aum-unit')?.value   || DEFAULT_STATS.aumUnit,
+    loans:     document.getElementById('admin-loans')?.value      || DEFAULT_STATS.loans,
+    loansUnit: document.getElementById('admin-loans-unit')?.value || DEFAULT_STATS.loansUnit,
+    ins:       document.getElementById('admin-ins')?.value        || DEFAULT_STATS.ins,
+    insUnit:   document.getElementById('admin-ins-unit')?.value   || DEFAULT_STATS.insUnit,
   };
 
-  applyStats(stats); // instant page update
+  applyStats(stats); // instant local update
+
   const result = await pushLiveStats(stats);
 
-  status.style.display='block';
+  status.style.display = 'block';
   if(result.ok){
-    status.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:12px;margin-top:16px;text-align:center;background:rgba(34,197,94,.1);color:#16a34a;border:1px solid rgba(34,197,94,.3)';
-    status.textContent = result.newBin
-      ? '✓ Bin created — copy the ID from the popup and paste into app.js once.'
-      : '✓ Live! All visitors worldwide now see your updated stats.';
-    if(!result.newBin) setTimeout(()=>{ status.style.display='none'; closeAdmin(); }, 2500);
+    status.style.cssText = 'display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-top:16px;text-align:center;background:rgba(34,197,94,.12);color:#16a34a;border:1px solid rgba(34,197,94,.3)';
+    status.textContent = '✓ Saved to GitHub! All visitors worldwide now see the updated numbers.';
+    setTimeout(() => { status.style.display = 'none'; closeAdmin(); }, 3000);
   } else {
-    status.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:12px;margin-top:16px;text-align:center;background:rgba(239,68,68,.1);color:#dc2626;border:1px solid rgba(239,68,68,.3)';
-    status.textContent='✗ Error: '+(result.error||'unknown')+'. Check browser console.';
+    status.style.cssText = 'display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-top:16px;text-align:center;background:rgba(239,68,68,.1);color:#dc2626;border:1px solid rgba(239,68,68,.3)';
+    status.textContent = '✗ Save failed: ' + (result.error || 'unknown error');
   }
-  btn.textContent='Update Live Stats →'; btn.disabled=false;
+
+  btn.textContent = 'Update Live Stats →';
+  btn.disabled = false;
 }
 
 function openAdmin(){
-  document.getElementById('admin-setup').style.display='none';
-  // Pre-fill fields with LIVE current values (not defaults)
-  const s = _liveStats || DEFAULT_STATS;
-  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
+  // Hide setup panel — everything is hardcoded
+  const setupDiv = document.getElementById('admin-setup');
+  if(setupDiv) setupDiv.style.display = 'none';
+
+  // Prefill with current live values
+  const s = _live || DEFAULT_STATS;
+  const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
   set('admin-aum',        s.aum);
-  set('admin-aum-unit',   s.aumUnit||'Cr');
+  set('admin-aum-unit',   s.aumUnit   || 'Cr');
   set('admin-loans',      s.loans);
-  set('admin-loans-unit', s.loansUnit||'Cr');
+  set('admin-loans-unit', s.loansUnit || 'Cr');
   set('admin-ins',        s.ins);
-  set('admin-ins-unit',   s.insUnit||'none');
+  set('admin-ins-unit',   s.insUnit   || 'none');
+
+  // Wire up live previews
   ['admin-aum','admin-aum-unit','admin-loans','admin-loans-unit','admin-ins','admin-ins-unit']
-    .forEach(id=>{ const el=document.getElementById(id); if(el){ el.removeEventListener('input',updatePreviews); el.addEventListener('input',updatePreviews); }});
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if(el){ el.removeEventListener('input', updatePreviews); el.addEventListener('input', updatePreviews); }
+    });
   updatePreviews();
-  document.getElementById('admin-overlay').style.display='block';
-  document.getElementById('admin-panel').style.display='block';
-  document.body.style.overflow='hidden';
+
+  document.getElementById('admin-overlay').style.display = 'block';
+  document.getElementById('admin-panel').style.display   = 'block';
+  document.body.style.overflow = 'hidden';
 }
 
 function closeAdmin(){
-  document.getElementById('admin-overlay').style.display='none';
-  document.getElementById('admin-panel').style.display='none';
-  document.body.style.overflow='';
+  document.getElementById('admin-overlay').style.display = 'none';
+  document.getElementById('admin-panel').style.display   = 'none';
+  document.body.style.overflow = '';
 }
 
 function checkAdminHash(){
-  if(location.hash==='#admin-igris'){
+  if(location.hash === '#admin-igris'){
     openAdmin();
-    history.replaceState(null,'',location.pathname);
+    history.replaceState(null, '', location.pathname);
   }
 }
-window.addEventListener('hashchange',checkAdminHash);
+window.addEventListener('hashchange', checkAdminHash);
 checkAdminHash();
+
 // Load stats for all visitors on page load
 fetchLiveStats();
