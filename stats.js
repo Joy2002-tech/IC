@@ -6,9 +6,9 @@
 const IGRIS_STATS = {
 
   // ── Hero & Impact Section ──────────────────────────
-  aum:         "₹10K+",          // Assets Under Advisory
+  aum:         "₹20K+",          // Assets Under Advisory
   loans:       "₹0L+",           // Loans Disbursed
-  insurance:   "3+",             // Insurance Policies
+  insurance:   "5+",             // Insurance Policies
 
   // ── Impact Cards ──────────────────────────────────
   experience:  "1",              // Years of Experience (shown as "1+ Year")
