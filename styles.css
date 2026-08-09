@@ -123,6 +123,7 @@ h3{font-family:'Cormorant Garamond',serif;font-size:clamp(19px,2vw,24px);font-we
 .h-svc-inner{max-width:1100px;margin:0 auto}
 .h-svc-head{margin-bottom:36px}
 .pillar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.hub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:760px;margin:0 auto}
 .pillar-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--radius);padding:26px 20px;cursor:pointer;transition:all .26s;position:relative;overflow:hidden;display:flex;flex-direction:column}
 .pillar-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--acc),var(--acc3));transform:scaleX(0);transform-origin:left;transition:transform .3s}
 .pillar-card:hover{transform:translateY(-3px);box-shadow:var(--sh2);border-color:rgba(26,82,204,.18)}.pillar-card:hover::after{transform:scaleX(1)}
